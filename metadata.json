@@ -1,0 +1,6 @@
+{
+  "name": "Desi Paisa",
+  "description": "Bilingual (Hindi + English) virtual wallet, demo marketplace, referral tracker, and secure transaction manager.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Desi Paisa</string>
+    <string name="app_tagline">Smart Demo Wallet &amp; Merchant Hub</string>
+    <string name="app_tagline_hi">स्मार्ट डेमो वॉलेट और मर्चेंट हब</string>
+    <string name="demo_mode_badge">DEMO MODE • Virtual Balance Only</string>
+    <string name="demo_mode_badge_hi">डेमो मोड • केवल वर्चुअल बैलेंस</string>
+    <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="support_email">support@desipaisa.demo</string>
+</resources>

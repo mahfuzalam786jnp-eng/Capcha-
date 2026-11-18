@@ -1,0 +1,162 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated Desi Paisa user profile, virtual demo wallet totals, referral code, and salted PBKDF2 password hash.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the owner." },
+        "fullName": { "type": "string", "description": "User full display name (2-60 chars)." },
+        "mobileNumber": { "type": "string", "description": "10-digit Indian mobile number." },
+        "email": { "type": "string", "description": "Google account email address." },
+        "referralCode": { "type": "string", "description": "Unique 8-character uppercase referral code." },
+        "referredByCode": { "type": "string", "description": "Optional referral code used at onboarding." },
+        "walletBalance": { "type": "number", "description": "Virtual demo wallet balance in INR." },
+        "totalDeposit": { "type": "number", "description": "Cumulative approved demo deposits." },
+        "totalWithdrawal": { "type": "number", "description": "Cumulative approved demo withdrawals." },
+        "dailyStreakCount": { "type": "integer", "description": "Daily activity check-in streak counter." },
+        "lastCheckInEpochDay": { "type": "integer", "description": "Epoch day of last daily activity claim." },
+        "passwordHash": { "type": "string", "description": "Base64 PBKDF2WithHmacSHA256 hash of security passcode." },
+        "passwordSalt": { "type": "string", "description": "Base64 16-byte cryptographic salt." },
+        "languagePref": { "type": "string", "enum": ["EN", "HI"], "description": "Preferred UI language." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp of profile creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last profile update." }
+      },
+      "required": [
+        "userId", "fullName", "mobileNumber", "email", "referralCode", "referredByCode",
+        "walletBalance", "totalDeposit", "totalWithdrawal", "dailyStreakCount",
+        "lastCheckInEpochDay", "passwordHash", "passwordSalt", "languagePref",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "DepositRequest": {
+      "title": "DepositRequest",
+      "description": "Demo deposit request requiring admin verification before balance credit.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "amount": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["DEMO_UPI", "DEMO_BANK", "DEMO_CARD"] },
+        "referenceNote": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "demoMode": { "type": "boolean" },
+        "adminRemark": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "idempotencyKey", "amount", "paymentMethod", "referenceNote",
+        "status", "demoMode", "adminRemark", "createdAt", "updatedAt"
+      ]
+    },
+    "WithdrawalRequest": {
+      "title": "WithdrawalRequest",
+      "description": "Demo withdrawal request requiring admin approval before payout.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "amount": { "type": "number" },
+        "payoutMethod": { "type": "string", "enum": ["UPI", "BANK_TRANSFER"] },
+        "payoutDestination": { "type": "string" },
+        "accountHolderName": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "demoMode": { "type": "boolean" },
+        "adminRemark": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "idempotencyKey", "amount", "payoutMethod", "payoutDestination",
+        "accountHolderName", "status", "demoMode", "adminRemark", "createdAt", "updatedAt"
+      ]
+    },
+    "WalletTransaction": {
+      "title": "WalletTransaction",
+      "description": "Immutable demo wallet transaction ledger entry.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["DEMO_DEPOSIT", "DEMO_WITHDRAWAL", "DAILY_ACTIVITY", "REFERRAL_REWARD", "DEMO_PRODUCT_ORDER"]
+        },
+        "title": { "type": "string" },
+        "titleHi": { "type": "string" },
+        "amount": { "type": "number" },
+        "direction": { "type": "string", "enum": ["CREDIT", "DEBIT"] },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED", "COMPLETED"] },
+        "demoMode": { "type": "boolean" },
+        "relatedRequestId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "idempotencyKey", "type", "title", "titleHi", "amount",
+        "direction", "status", "demoMode", "relatedRequestId", "createdAt"
+      ]
+    },
+    "ReferralRecord": {
+      "title": "ReferralRecord",
+      "description": "Referral invitation history record for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "inviteeName": { "type": "string" },
+        "inviteeCodeOrPhone": { "type": "string" },
+        "status": { "type": "string", "enum": ["JOINED", "VERIFIED"] },
+        "rewardPoints": { "type": "integer" },
+        "demoMode": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "inviteeName", "inviteeCodeOrPhone", "status",
+        "rewardPoints", "demoMode", "createdAt"
+      ]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "Customer support inquiry or problem report submitted by a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": ["GENERAL", "DEPOSIT_ISSUE", "WITHDRAWAL_ISSUE", "BUG_REPORT", "ACCOUNT"]
+        },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["OPEN", "RESOLVED"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "category", "subject", "message", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile, virtual wallet balances, and hashed security password."
+    },
+    "/users/{userId}/deposits/{depositId}": {
+      "schema": { "$ref": "#/entities/DepositRequest" },
+      "description": "User-scoped demo deposit requests."
+    },
+    "/users/{userId}/withdrawals/{withdrawalId}": {
+      "schema": { "$ref": "#/entities/WithdrawalRequest" },
+      "description": "User-scoped demo withdrawal requests."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/WalletTransaction" },
+      "description": "User-scoped demo wallet transaction ledger."
+    },
+    "/users/{userId}/referrals/{referralId}": {
+      "schema": { "$ref": "#/entities/ReferralRecord" },
+      "description": "User-scoped referral history."
+    },
+    "/users/{userId}/support_tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/SupportTicket" },
+      "description": "User-scoped customer support tickets."
+    }
+  }
+}

@@ -1,0 +1,337 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Shared Hardened Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validation Blueprints ---
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 60 &&
+             data.mobileNumber is string && data.mobileNumber.matches('^[0-9]{10}$') &&
+             data.email is string && data.email.size() <= 120 &&
+             data.referralCode is string && data.referralCode.size() >= 6 && data.referralCode.size() <= 16 &&
+             data.referralCode.matches('^[A-Z0-9]+$') &&
+             data.referredByCode is string && data.referredByCode.size() <= 20 &&
+             data.walletBalance is number && data.walletBalance >= 0 && data.walletBalance <= 10000000 &&
+             data.totalDeposit is number && data.totalDeposit >= 0 && data.totalDeposit <= 10000000 &&
+             data.totalWithdrawal is number && data.totalWithdrawal >= 0 && data.totalWithdrawal <= 10000000 &&
+             data.dailyStreakCount is int && data.dailyStreakCount >= 0 && data.dailyStreakCount <= 10000 &&
+             data.lastCheckInEpochDay is int && data.lastCheckInEpochDay >= 0 &&
+             data.passwordHash is string && data.passwordHash.size() >= 16 && data.passwordHash.size() <= 256 &&
+             data.passwordSalt is string && data.passwordSalt.size() >= 16 && data.passwordSalt.size() <= 64 &&
+             data.languagePref is string && data.languagePref in ['EN', 'HI'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidDeposit(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.idempotencyKey is string && data.idempotencyKey.size() >= 8 && data.idempotencyKey.size() <= 128 &&
+             data.amount is number && data.amount > 0 && data.amount <= 100000 &&
+             data.paymentMethod is string && data.paymentMethod in ['DEMO_UPI', 'DEMO_BANK', 'DEMO_CARD'] &&
+             data.referenceNote is string && data.referenceNote.size() <= 120 &&
+             data.status is string && data.status in ['PENDING', 'APPROVED', 'REJECTED'] &&
+             data.demoMode is bool && data.demoMode == true &&
+             data.adminRemark is string && data.adminRemark.size() <= 200 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidWithdrawal(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.idempotencyKey is string && data.idempotencyKey.size() >= 8 && data.idempotencyKey.size() <= 128 &&
+             data.amount is number && data.amount > 0 && data.amount <= 100000 &&
+             data.payoutMethod is string && data.payoutMethod in ['UPI', 'BANK_TRANSFER'] &&
+             data.payoutDestination is string && data.payoutDestination.size() >= 4 && data.payoutDestination.size() <= 100 &&
+             data.accountHolderName is string && data.accountHolderName.size() >= 2 && data.accountHolderName.size() <= 60 &&
+             data.status is string && data.status in ['PENDING', 'APPROVED', 'REJECTED'] &&
+             data.demoMode is bool && data.demoMode == true &&
+             data.adminRemark is string && data.adminRemark.size() <= 200 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidTransaction(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.idempotencyKey is string && data.idempotencyKey.size() >= 8 && data.idempotencyKey.size() <= 128 &&
+             data.type is string && data.type in ['DEMO_DEPOSIT', 'DEMO_WITHDRAWAL', 'DAILY_ACTIVITY', 'REFERRAL_REWARD', 'DEMO_PRODUCT_ORDER'] &&
+             data.title is string && data.title.size() >= 2 && data.title.size() <= 100 &&
+             data.titleHi is string && data.titleHi.size() >= 2 && data.titleHi.size() <= 100 &&
+             data.amount is number && data.amount > 0 && data.amount <= 100000 &&
+             data.direction is string && data.direction in ['CREDIT', 'DEBIT'] &&
+             data.status is string && data.status in ['PENDING', 'APPROVED', 'REJECTED', 'COMPLETED'] &&
+             data.demoMode is bool && data.demoMode == true &&
+             data.relatedRequestId is string && data.relatedRequestId.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidReferral(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.inviteeName is string && data.inviteeName.size() >= 2 && data.inviteeName.size() <= 60 &&
+             data.inviteeCodeOrPhone is string && data.inviteeCodeOrPhone.size() >= 4 && data.inviteeCodeOrPhone.size() <= 30 &&
+             data.status is string && data.status in ['JOINED', 'VERIFIED'] &&
+             data.rewardPoints is int && data.rewardPoints >= 0 && data.rewardPoints <= 1000 &&
+             data.demoMode is bool && data.demoMode == true &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidSupportTicket(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.category is string && data.category in ['GENERAL', 'DEPOSIT_ISSUE', 'WITHDRAWAL_ISSUE', 'BUG_REPORT', 'ACCOUNT'] &&
+             data.subject is string && data.subject.size() >= 3 && data.subject.size() <= 100 &&
+             data.message is string && data.message.size() >= 5 && data.message.size() <= 1000 &&
+             data.status is string && data.status in ['OPEN', 'RESOLVED'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == userId &&
+                       incoming().walletBalance == 0 &&
+                       incoming().totalDeposit == 0 &&
+                       incoming().totalWithdrawal == 0 &&
+                       incoming().dailyStreakCount == 0 &&
+                       incoming().lastCheckInEpochDay == 0 &&
+                       incoming().keys().hasAll([
+                         'userId', 'fullName', 'mobileNumber', 'email', 'referralCode',
+                         'referredByCode', 'walletBalance', 'totalDeposit', 'totalWithdrawal',
+                         'dailyStreakCount', 'lastCheckInEpochDay', 'passwordHash', 'passwordSalt',
+                         'languagePref', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'fullName', 'mobileNumber', 'email', 'referralCode',
+                         'referredByCode', 'walletBalance', 'totalDeposit', 'totalWithdrawal',
+                         'dailyStreakCount', 'lastCheckInEpochDay', 'passwordHash', 'passwordSalt',
+                         'languagePref', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().referralCode == existing().referralCode &&
+                       incoming().createdAt == existing().createdAt && (
+                         // Action 1: Edit Profile & Language Preference
+                         incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'mobileNumber', 'languagePref', 'updatedAt']) ||
+                         // Action 2: Change Security Password Hash & Salt
+                         incoming().diff(existing()).affectedKeys().hasOnly(['passwordHash', 'passwordSalt', 'updatedAt']) ||
+                         // Action 3: Daily Activity Check-in Claim (+25 Demo Bonus once per day)
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['walletBalance', 'dailyStreakCount', 'lastCheckInEpochDay', 'updatedAt']) &&
+                           incoming().lastCheckInEpochDay > existing().lastCheckInEpochDay &&
+                           incoming().dailyStreakCount == existing().dailyStreakCount + 1 &&
+                           incoming().walletBalance >= existing().walletBalance &&
+                           incoming().walletBalance <= existing().walletBalance + 25.01
+                         ) ||
+                         // Action 4: Demo Deposit Approval (balance & totalDeposit credit)
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['walletBalance', 'totalDeposit', 'updatedAt']) &&
+                           incoming().walletBalance > existing().walletBalance &&
+                           incoming().totalDeposit > existing().totalDeposit
+                         ) ||
+                         // Action 5: Demo Withdrawal Approval (balance deduction & totalWithdrawal increment)
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['walletBalance', 'totalWithdrawal', 'updatedAt']) &&
+                           incoming().walletBalance < existing().walletBalance &&
+                           incoming().totalWithdrawal > existing().totalWithdrawal
+                         ) ||
+                         // Action 6: Demo Product Order or Demo Referral Bonus (balance adjust)
+                         incoming().diff(existing()).affectedKeys().hasOnly(['walletBalance', 'updatedAt'])
+                       );
+
+      allow delete: if false;
+
+      // User-scoped Deposits
+      match /deposits/{depositId} {
+        allow get: if isOwner(userId) && isValidId(depositId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(depositId) &&
+                         incoming().userId == userId &&
+                         incoming().idempotencyKey == depositId &&
+                         incoming().status == 'PENDING' &&
+                         incoming().demoMode == true &&
+                         incoming().keys().hasAll([
+                           'userId', 'idempotencyKey', 'amount', 'paymentMethod',
+                           'referenceNote', 'status', 'demoMode', 'adminRemark',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'idempotencyKey', 'amount', 'paymentMethod',
+                           'referenceNote', 'status', 'demoMode', 'adminRemark',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidDeposit(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(depositId) &&
+                         isValidDeposit(incoming()) &&
+                         existing().status == 'PENDING' &&
+                         incoming().status in ['APPROVED', 'REJECTED'] &&
+                         incoming().userId == existing().userId &&
+                         incoming().idempotencyKey == existing().idempotencyKey &&
+                         incoming().amount == existing().amount &&
+                         incoming().paymentMethod == existing().paymentMethod &&
+                         incoming().demoMode == existing().demoMode &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminRemark', 'updatedAt']);
+
+        allow delete: if false;
+      }
+
+      // User-scoped Withdrawals
+      match /withdrawals/{withdrawalId} {
+        allow get: if isOwner(userId) && isValidId(withdrawalId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(withdrawalId) &&
+                         incoming().userId == userId &&
+                         incoming().idempotencyKey == withdrawalId &&
+                         incoming().status == 'PENDING' &&
+                         incoming().demoMode == true &&
+                         incoming().keys().hasAll([
+                           'userId', 'idempotencyKey', 'amount', 'payoutMethod',
+                           'payoutDestination', 'accountHolderName', 'status',
+                           'demoMode', 'adminRemark', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'idempotencyKey', 'amount', 'payoutMethod',
+                           'payoutDestination', 'accountHolderName', 'status',
+                           'demoMode', 'adminRemark', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidWithdrawal(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(withdrawalId) &&
+                         isValidWithdrawal(incoming()) &&
+                         existing().status == 'PENDING' &&
+                         incoming().status in ['APPROVED', 'REJECTED'] &&
+                         incoming().userId == existing().userId &&
+                         incoming().idempotencyKey == existing().idempotencyKey &&
+                         incoming().amount == existing().amount &&
+                         incoming().payoutMethod == existing().payoutMethod &&
+                         incoming().demoMode == existing().demoMode &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminRemark', 'updatedAt']);
+
+        allow delete: if false;
+      }
+
+      // User-scoped Transaction Ledger
+      match /transactions/{transactionId} {
+        allow get: if isOwner(userId) && isValidId(transactionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(transactionId) &&
+                         incoming().userId == userId &&
+                         incoming().idempotencyKey == transactionId &&
+                         incoming().demoMode == true &&
+                         incoming().keys().hasAll([
+                           'userId', 'idempotencyKey', 'type', 'title', 'titleHi',
+                           'amount', 'direction', 'status', 'demoMode',
+                           'relatedRequestId', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'idempotencyKey', 'type', 'title', 'titleHi',
+                           'amount', 'direction', 'status', 'demoMode',
+                           'relatedRequestId', 'createdAt'
+                         ]) &&
+                         isValidTransaction(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(transactionId) &&
+                         isValidTransaction(incoming()) &&
+                         existing().status == 'PENDING' &&
+                         incoming().status in ['APPROVED', 'REJECTED'] &&
+                         incoming().userId == existing().userId &&
+                         incoming().idempotencyKey == existing().idempotencyKey &&
+                         incoming().amount == existing().amount &&
+                         incoming().type == existing().type &&
+                         incoming().direction == existing().direction &&
+                         incoming().demoMode == existing().demoMode &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+
+        allow delete: if false;
+      }
+
+      // User-scoped Referrals
+      match /referrals/{referralId} {
+        allow get: if isOwner(userId) && isValidId(referralId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(referralId) &&
+                         incoming().userId == userId &&
+                         incoming().demoMode == true &&
+                         incoming().keys().hasAll([
+                           'userId', 'inviteeName', 'inviteeCodeOrPhone',
+                           'status', 'rewardPoints', 'demoMode', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'inviteeName', 'inviteeCodeOrPhone',
+                           'status', 'rewardPoints', 'demoMode', 'createdAt'
+                         ]) &&
+                         isValidReferral(incoming());
+
+        allow update, delete: if false;
+      }
+
+      // User-scoped Support Tickets
+      match /support_tickets/{ticketId} {
+        allow get: if isOwner(userId) && isValidId(ticketId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(ticketId) &&
+                         incoming().userId == userId &&
+                         incoming().status == 'OPEN' &&
+                         incoming().keys().hasAll([
+                           'userId', 'category', 'subject', 'message', 'status', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'category', 'subject', 'message', 'status', 'createdAt'
+                         ]) &&
+                         isValidSupportTicket(incoming());
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}
